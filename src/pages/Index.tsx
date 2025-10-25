@@ -19,12 +19,21 @@ const Index = () => {
   const { toast } = useToast();
   const [showWelcome, setShowWelcome] = useState(true);
   const [nuts, setNuts] = useState(150);
-  const [activeSection, setActiveSection] = useState<'home' | 'poznajka' | 'poigrajka' | 'memo'>('home');
+  const [activeSection, setActiveSection] = useState<'home' | 'poznajka' | 'poigrajka' | 'memo' | 'coloring' | 'riddles'>('home');
   const [memoCards, setMemoCards] = useState<MemoCard[]>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
   const [matchedPairs, setMatchedPairs] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
+  
+  const [selectedColor, setSelectedColor] = useState('#FF0000');
+  const [currentColoringIndex, setCurrentColoringIndex] = useState(0);
+  const [coloringCompleted, setColoringCompleted] = useState(false);
+  
+  const [currentRiddleIndex, setCurrentRiddleIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [riddlesScore, setRiddlesScore] = useState(0);
+  const [showRiddleResult, setShowRiddleResult] = useState(false);
 
   const poznajkaCategories = [
     { id: 'facts', title: 'Интересные факты', icon: 'Sparkles', color: 'bg-amber-500' },
@@ -44,6 +53,45 @@ const Index = () => {
     { id: 'find', title: 'Искалочки', icon: 'Search', nuts: 10 },
     { id: 'rebus', title: 'Ребусы', icon: 'Book', nuts: 15 },
     { id: 'differences', title: 'Найди отличия', icon: 'Eye', nuts: 10 },
+  ];
+
+  const coloringPages = [
+    { id: 1, title: 'Матрёшка', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/3692ae31-6f57-47af-9b00-d7dff8cd0475.jpg' },
+    { id: 2, title: 'Кремль', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/4188fe5d-e8e8-48b8-8d10-7d586f2495af.jpg' },
+    { id: 3, title: 'Медведь с балалайкой', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/2a395410-2c4a-4fa2-8bae-d8c60ca9a8d4.jpg' },
+  ];
+
+  const riddles = [
+    {
+      question: 'Какое дерево является символом России?',
+      answers: ['Дуб', 'Берёза', 'Ель', 'Сосна'],
+      correct: 1,
+      emoji: '🌳'
+    },
+    {
+      question: 'Какой инструмент имеет три струны и треугольную форму?',
+      answers: ['Гитара', 'Гармонь', 'Балалайка', 'Домра'],
+      correct: 2,
+      emoji: '🎵'
+    },
+    {
+      question: 'Как называется русская деревянная кукла, внутри которой находятся другие куклы?',
+      answers: ['Матрёшка', 'Неваляшка', 'Петрушка', 'Барби'],
+      correct: 0,
+      emoji: '🪆'
+    },
+    {
+      question: 'В каком городе находится Красная площадь?',
+      answers: ['Санкт-Петербург', 'Казань', 'Москва', 'Сочи'],
+      correct: 2,
+      emoji: '🏛️'
+    },
+    {
+      question: 'Какой головной убор носили русские царицы?',
+      answers: ['Корона', 'Шапка', 'Кокошник', 'Платок'],
+      correct: 2,
+      emoji: '👑'
+    },
   ];
 
   const russianSymbols = [
@@ -115,6 +163,58 @@ const Index = () => {
         }, 1000);
       }
     }
+  };
+
+  const completeColoring = () => {
+    const reward = 5;
+    setNuts(nuts + reward);
+    setColoringCompleted(true);
+    toast({
+      title: '🎨 Отлично!',
+      description: `Ты раскрасил картинку! +${reward} орешков!`,
+    });
+  };
+
+  const checkRiddleAnswer = () => {
+    if (selectedAnswer === null) return;
+    
+    setShowRiddleResult(true);
+    
+    if (selectedAnswer === riddles[currentRiddleIndex].correct) {
+      setRiddlesScore(riddlesScore + 1);
+      toast({
+        title: '✅ Правильно!',
+        description: 'Молодец! Переходим к следующему вопросу.',
+      });
+    } else {
+      toast({
+        title: '❌ Неправильно',
+        description: `Правильный ответ: ${riddles[currentRiddleIndex].answers[riddles[currentRiddleIndex].correct]}`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const nextRiddle = () => {
+    if (currentRiddleIndex < riddles.length - 1) {
+      setCurrentRiddleIndex(currentRiddleIndex + 1);
+      setSelectedAnswer(null);
+      setShowRiddleResult(false);
+    } else {
+      const reward = riddlesScore * 2;
+      setNuts(nuts + reward);
+      toast({
+        title: '🎉 Загадки завершены!',
+        description: `Правильных ответов: ${riddlesScore} из ${riddles.length}. Награда: ${reward} орешков!`,
+      });
+    }
+  };
+
+  const resetRiddles = () => {
+    setCurrentRiddleIndex(0);
+    setSelectedAnswer(null);
+    setRiddlesScore(0);
+    setShowRiddleResult(false);
   };
 
   return (
@@ -377,6 +477,13 @@ const Index = () => {
                           if (game.id === 'memo') {
                             setActiveSection('memo');
                             initializeGame();
+                          } else if (game.id === 'coloring') {
+                            setActiveSection('coloring');
+                            setCurrentColoringIndex(0);
+                            setColoringCompleted(false);
+                          } else if (game.id === 'riddles') {
+                            setActiveSection('riddles');
+                            resetRiddles();
                           }
                         }}
                       >
@@ -499,6 +606,200 @@ const Index = () => {
                   </div>
                 </Card>
               )}
+            </div>
+          )}
+
+          {activeSection === 'coloring' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex items-center justify-between mb-8">
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveSection('poigrajka')}
+                  className="gap-2"
+                >
+                  <Icon name="ArrowLeft" />
+                  Назад к играм
+                </Button>
+                <Badge variant="secondary" className="text-lg px-4 py-2">
+                  Раскраска {currentColoringIndex + 1} / {coloringPages.length}
+                </Badge>
+              </div>
+
+              <div className="text-center mb-8">
+                <h2 className="text-4xl font-bold text-primary mb-3">🎨 Раскраски</h2>
+                <p className="text-xl text-muted-foreground">{coloringPages[currentColoringIndex].title}</p>
+              </div>
+
+              <div className="max-w-4xl mx-auto">
+                <div className="grid md:grid-cols-[200px_1fr] gap-6">
+                  <Card className="p-4 h-fit">
+                    <h3 className="font-bold mb-4 text-center">Палитра</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080', '#FFC0CB', '#8B4513', '#FFD700', '#000000'].map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setSelectedColor(color)}
+                          className={`w-full aspect-square rounded-lg border-4 transition-all hover:scale-110 ${
+                            selectedColor === color ? 'border-primary shadow-lg' : 'border-gray-300'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="relative">
+                      <img
+                        src={coloringPages[currentColoringIndex].image}
+                        alt={coloringPages[currentColoringIndex].title}
+                        className="w-full h-auto rounded-lg border-4 border-primary"
+                        style={{ filter: coloringCompleted ? 'none' : 'brightness(1.1)' }}
+                      />
+                    </div>
+                    
+                    <div className="mt-6 flex gap-4 justify-center">
+                      {!coloringCompleted && (
+                        <Button
+                          size="lg"
+                          onClick={completeColoring}
+                          className="gap-2"
+                        >
+                          <Icon name="Check" />
+                          Готово!
+                        </Button>
+                      )}
+                      
+                      {currentColoringIndex < coloringPages.length - 1 && (
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          onClick={() => {
+                            setCurrentColoringIndex(currentColoringIndex + 1);
+                            setColoringCompleted(false);
+                          }}
+                        >
+                          Следующая
+                          <Icon name="ArrowRight" className="ml-2" />
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                </div>
+
+                {coloringCompleted && (
+                  <Card className="p-8 bg-gradient-to-br from-green-50 to-emerald-100 border-4 border-green-400 mt-6">
+                    <div className="text-center space-y-4">
+                      <div className="text-6xl mb-4 animate-bounce-gentle">🎨</div>
+                      <h3 className="text-3xl font-bold text-green-900">Красота!</h3>
+                      <p className="text-xl text-green-800">
+                        Отличная раскраска!
+                      </p>
+                      <div className="flex items-center justify-center gap-2 text-2xl font-bold text-amber-700">
+                        <span className="text-4xl">🌰</span>
+                        <span>+5 орешков</span>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'riddles' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex items-center justify-between mb-8">
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveSection('poigrajka')}
+                  className="gap-2"
+                >
+                  <Icon name="ArrowLeft" />
+                  Назад к играм
+                </Button>
+                <Badge variant="secondary" className="text-lg px-4 py-2">
+                  Вопрос {currentRiddleIndex + 1} / {riddles.length}
+                </Badge>
+                <Button onClick={resetRiddles} variant="outline">
+                  <Icon name="RotateCcw" className="mr-2" />
+                  Заново
+                </Button>
+              </div>
+
+              <div className="text-center mb-8">
+                <h2 className="text-4xl font-bold text-primary mb-3">❓ Загадки о России</h2>
+                <p className="text-xl text-muted-foreground">Правильных ответов: {riddlesScore} / {riddles.length}</p>
+              </div>
+
+              <div className="max-w-2xl mx-auto">
+                {currentRiddleIndex < riddles.length ? (
+                  <Card className="p-8 border-4 border-primary">
+                    <div className="text-center mb-8">
+                      <div className="text-6xl mb-4">{riddles[currentRiddleIndex].emoji}</div>
+                      <h3 className="text-2xl font-bold text-foreground mb-6">
+                        {riddles[currentRiddleIndex].question}
+                      </h3>
+                    </div>
+
+                    <div className="space-y-3">
+                      {riddles[currentRiddleIndex].answers.map((answer, index) => (
+                        <Button
+                          key={index}
+                          variant={selectedAnswer === index ? 'default' : 'outline'}
+                          size="lg"
+                          className={`w-full text-lg justify-start ${
+                            showRiddleResult
+                              ? index === riddles[currentRiddleIndex].correct
+                                ? 'bg-green-500 hover:bg-green-600 text-white'
+                                : selectedAnswer === index
+                                ? 'bg-red-500 hover:bg-red-600 text-white'
+                                : ''
+                              : ''
+                          }`}
+                          onClick={() => !showRiddleResult && setSelectedAnswer(index)}
+                          disabled={showRiddleResult}
+                        >
+                          {answer}
+                          {showRiddleResult && index === riddles[currentRiddleIndex].correct && ' ✅'}
+                          {showRiddleResult && selectedAnswer === index && index !== riddles[currentRiddleIndex].correct && ' ❌'}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <div className="mt-8 flex gap-4 justify-center">
+                      {!showRiddleResult && selectedAnswer !== null && (
+                        <Button size="lg" onClick={checkRiddleAnswer}>
+                          Проверить ответ
+                        </Button>
+                      )}
+                      
+                      {showRiddleResult && (
+                        <Button size="lg" onClick={nextRiddle}>
+                          {currentRiddleIndex < riddles.length - 1 ? 'Следующий вопрос' : 'Завершить'}
+                          <Icon name="ArrowRight" className="ml-2" />
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ) : (
+                  <Card className="p-8 bg-gradient-to-br from-green-50 to-emerald-100 border-4 border-green-400">
+                    <div className="text-center space-y-4">
+                      <div className="text-6xl mb-4 animate-bounce-gentle">🏆</div>
+                      <h3 className="text-3xl font-bold text-green-900">Загадки пройдены!</h3>
+                      <p className="text-xl text-green-800">
+                        Правильных ответов: {riddlesScore} из {riddles.length}
+                      </p>
+                      <div className="flex items-center justify-center gap-2 text-2xl font-bold text-amber-700">
+                        <span className="text-4xl">🌰</span>
+                        <span>+{riddlesScore * 2} орешков</span>
+                      </div>
+                      <Button size="lg" onClick={resetRiddles} className="mt-4">
+                        Пройти ещё раз
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+              </div>
             </div>
           )}
         </main>

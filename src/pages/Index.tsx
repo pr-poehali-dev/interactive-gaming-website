@@ -1,15 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+
+interface MemoCard {
+  id: number;
+  image: string;
+  name: string;
+  isFlipped: boolean;
+  isMatched: boolean;
+}
 
 const Index = () => {
+  const { toast } = useToast();
   const [showWelcome, setShowWelcome] = useState(true);
   const [nuts, setNuts] = useState(150);
-  const [activeSection, setActiveSection] = useState<'home' | 'poznajka' | 'poigrajka'>('home');
+  const [activeSection, setActiveSection] = useState<'home' | 'poznajka' | 'poigrajka' | 'memo'>('home');
+  const [memoCards, setMemoCards] = useState<MemoCard[]>([]);
+  const [flippedCards, setFlippedCards] = useState<number[]>([]);
+  const [moves, setMoves] = useState(0);
+  const [matchedPairs, setMatchedPairs] = useState(0);
+  const [gameStarted, setGameStarted] = useState(false);
 
   const poznajkaCategories = [
     { id: 'facts', title: 'Интересные факты', icon: 'Sparkles', color: 'bg-amber-500' },
@@ -30,6 +45,77 @@ const Index = () => {
     { id: 'rebus', title: 'Ребусы', icon: 'Book', nuts: 15 },
     { id: 'differences', title: 'Найди отличия', icon: 'Eye', nuts: 10 },
   ];
+
+  const russianSymbols = [
+    { id: 1, name: 'Матрёшка', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/825a930a-586a-4318-9d13-5f4985aa64fe.jpg' },
+    { id: 2, name: 'Балалайка', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/cc007db5-58e8-433c-b472-41d179fc67a4.jpg' },
+    { id: 3, name: 'Самовар', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/938b1933-2df5-4c27-8c17-ba8d7fe23691.jpg' },
+    { id: 4, name: 'Кокошник', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/bbd18d61-712a-4201-9c02-0cdf40b64d3a.jpg' },
+    { id: 5, name: 'Берёза', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/bcf8fd86-1745-45f6-ad08-50a553bc4c70.jpg' },
+    { id: 6, name: 'Медведь', image: 'https://cdn.poehali.dev/projects/7aec9868-f28f-4762-87c4-faa625abd8e0/files/95c7e36f-e793-45cf-9045-783b0f8df0cd.jpg' },
+  ];
+
+  const initializeGame = () => {
+    const shuffled = [...russianSymbols, ...russianSymbols]
+      .map((item, index) => ({
+        ...item,
+        id: index,
+        isFlipped: false,
+        isMatched: false,
+      }))
+      .sort(() => Math.random() - 0.5);
+    setMemoCards(shuffled);
+    setFlippedCards([]);
+    setMoves(0);
+    setMatchedPairs(0);
+    setGameStarted(true);
+  };
+
+  const handleCardClick = (index: number) => {
+    if (flippedCards.length === 2 || memoCards[index].isFlipped || memoCards[index].isMatched) {
+      return;
+    }
+
+    const newCards = [...memoCards];
+    newCards[index].isFlipped = true;
+    setMemoCards(newCards);
+
+    const newFlipped = [...flippedCards, index];
+    setFlippedCards(newFlipped);
+
+    if (newFlipped.length === 2) {
+      setMoves(moves + 1);
+      const [first, second] = newFlipped;
+      
+      if (memoCards[first].name === memoCards[second].name) {
+        setTimeout(() => {
+          const updatedCards = [...memoCards];
+          updatedCards[first].isMatched = true;
+          updatedCards[second].isMatched = true;
+          setMemoCards(updatedCards);
+          setFlippedCards([]);
+          setMatchedPairs(matchedPairs + 1);
+          
+          if (matchedPairs + 1 === 6) {
+            const reward = 10;
+            setNuts(nuts + reward);
+            toast({
+              title: '🎉 Победа!',
+              description: `Ты выиграл ${reward} орешков! Ходов: ${moves + 1}`,
+            });
+          }
+        }, 500);
+      } else {
+        setTimeout(() => {
+          const updatedCards = [...memoCards];
+          updatedCards[first].isFlipped = false;
+          updatedCards[second].isFlipped = false;
+          setMemoCards(updatedCards);
+          setFlippedCards([]);
+        }, 1000);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -284,7 +370,16 @@ const Index = () => {
                         <span className="mr-1">🌰</span>
                         +{game.nuts}
                       </Badge>
-                      <Button className="w-full" size="sm">
+                      <Button 
+                        className="w-full" 
+                        size="sm"
+                        onClick={() => {
+                          if (game.id === 'memo') {
+                            setActiveSection('memo');
+                            initializeGame();
+                          }
+                        }}
+                      >
                         Играть
                       </Button>
                     </div>
@@ -303,6 +398,107 @@ const Index = () => {
                   </div>
                 </div>
               </Card>
+            </div>
+          )}
+
+          {activeSection === 'memo' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex items-center justify-between mb-8">
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveSection('poigrajka')}
+                  className="gap-2"
+                >
+                  <Icon name="ArrowLeft" />
+                  Назад к играм
+                </Button>
+                <div className="flex gap-4 items-center">
+                  <Badge variant="secondary" className="text-lg px-4 py-2">
+                    Ходов: {moves}
+                  </Badge>
+                  <Badge variant="secondary" className="text-lg px-4 py-2">
+                    Пар: {matchedPairs} / 6
+                  </Badge>
+                </div>
+                <Button onClick={initializeGame} variant="outline">
+                  <Icon name="RotateCcw" className="mr-2" />
+                  Новая игра
+                </Button>
+              </div>
+
+              <div className="text-center mb-8">
+                <h2 className="text-4xl font-bold text-primary mb-3">🧠 Игра "Мемо"</h2>
+                <p className="text-xl text-muted-foreground">Найди все пары русских символов!</p>
+              </div>
+
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+                {memoCards.map((card, index) => (
+                  <div
+                    key={index}
+                    onClick={() => handleCardClick(index)}
+                    className={`aspect-square cursor-pointer transition-all duration-300 transform hover:scale-105 ${
+                      card.isMatched ? 'opacity-50' : ''
+                    }`}
+                  >
+                    <div className="relative w-full h-full">
+                      <div
+                        className={`absolute inset-0 transition-all duration-500 transform ${
+                          card.isFlipped || card.isMatched ? 'rotate-y-180' : ''
+                        }`}
+                        style={{
+                          transformStyle: 'preserve-3d',
+                        }}
+                      >
+                        <div
+                          className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-2xl border-4 border-white shadow-lg flex items-center justify-center"
+                          style={{
+                            backfaceVisibility: 'hidden',
+                          }}
+                        >
+                          <span className="text-6xl">🌰</span>
+                        </div>
+                        
+                        <div
+                          className="absolute inset-0 bg-white rounded-2xl border-4 border-primary shadow-lg p-2"
+                          style={{
+                            backfaceVisibility: 'hidden',
+                            transform: 'rotateY(180deg)',
+                          }}
+                        >
+                          <img
+                            src={card.image}
+                            alt={card.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {matchedPairs === 6 && (
+                <Card className="p-8 bg-gradient-to-br from-green-50 to-emerald-100 border-4 border-green-400 max-w-2xl mx-auto">
+                  <div className="text-center space-y-4">
+                    <div className="text-6xl mb-4 animate-bounce-gentle">🎉</div>
+                    <h3 className="text-3xl font-bold text-green-900">Поздравляем!</h3>
+                    <p className="text-xl text-green-800">
+                      Ты нашёл все пары за {moves} ходов!
+                    </p>
+                    <div className="flex items-center justify-center gap-2 text-2xl font-bold text-amber-700">
+                      <span className="text-4xl">🌰</span>
+                      <span>+10 орешков</span>
+                    </div>
+                    <Button
+                      size="lg"
+                      onClick={initializeGame}
+                      className="mt-4"
+                    >
+                      Сыграть ещё раз
+                    </Button>
+                  </div>
+                </Card>
+              )}
             </div>
           )}
         </main>
